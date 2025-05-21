@@ -6,12 +6,11 @@ class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load assets here
+    this.load.bitmapFont('pixelFont', 'assets/font/pixel_font.png', 'assets/font/pixel.xml');
   }
 
   create() {
-    // Create game objects here
-    this.add.text(100, 100, 'Hello Phaser!', { fill: '#0f0' });
+    this.add.bitmapText(this.scale.width / 2, this.scale.height / 2, 'pixelFont', 'Hello NES-style webgame!', 8).setOrigin(0.5);
   }
 
   update() {
