@@ -8,6 +8,7 @@ const config = {
   height: 240,
   scene: [TitleScene, InputTestScene],
   zoom: 3,
+  pixelArt: true,
   input: {
         gamepad: true
     },
