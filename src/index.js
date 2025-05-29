@@ -7,7 +7,10 @@ const config = {
   width: 256,
   height: 240,
   scene: [TitleScene, InputTestScene],
-  zoom: 3
+  zoom: 3,
+  input: {
+        gamepad: true
+    },
 };
 
 new Phaser.Game(config);
