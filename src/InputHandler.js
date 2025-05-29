@@ -7,9 +7,12 @@ export default class InputHandler {
         this.keys = {};
 
         /*
-            ********************************
             Default keys can be changed here
-            ********************************
+            for example; 
+                up: Phaser.Input.Keyboard.KeyCodes.W,
+                down: Phaser.Input.Keyboard.KeyCodes.S,
+                left: Phaser.Input.Keyboard.KeyCodes.A,
+                right: Phaser.Input.Keyboard.KeyCodes.D,
         */
         this.keyMappings = {
             up: Phaser.Input.Keyboard.KeyCodes.UP,
