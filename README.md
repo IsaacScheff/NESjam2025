@@ -6,6 +6,7 @@ A ready-to-use boilerplate for creating NES-style web games using Phaser 3 with 
 - NES-style input system (A/B buttons, Start/Select, D-pad), keyboard/controller inputs can be edited in InputHandler.js 
 - Dual input support (keyboard + gamepad)
 - Easy configuration of key/button mappings
+- Free pixel art font included from Public Pixel Font by GGBotNet, can be swaped out as desired in /src/assets/font
 - Input test scene included
 - 256×240 resolution matching NES, if you would rather 256x224 this can be changed in /src/index.js
 - Webpack pre-configured
