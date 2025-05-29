@@ -27,7 +27,7 @@ A ready-to-use boilerplate for creating NES-style web games using Phaser 3 with 
 Create production build:
 `npm run build`
 
-This will create a /dist folder
+This will create a /dist folder\
 For uploading to itch.io compress this folder
 
 ## Input Handling
@@ -42,6 +42,6 @@ update() {
 ```
 
 ## Contact
-Feel free to contact me with question or suggestions,
-IsaacScheff@gmail.com
+Feel free to contact me with question or suggestions,\
+IsaacScheff@gmail.com\
 discord: FakeIsaacWolf
