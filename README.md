@@ -3,7 +3,7 @@
 A ready-to-use boilerplate for creating NES-style web games using Phaser 3 with robust input handling.
 
 ## Features
-- NES-style input system (A/B buttons, Start/Select, D-pad), keyboard/controller inputs cna be edited in InputHandler.js 
+- NES-style input system (A/B buttons, Start/Select, D-pad), keyboard/controller inputs can be edited in InputHandler.js 
 - Dual input support (keyboard + gamepad)
 - Easy configuration of key/button mappings
 - Input test scene included
@@ -13,7 +13,7 @@ A ready-to-use boilerplate for creating NES-style web games using Phaser 3 with 
 ## Setup
 
 1. Clone the repository:
-   `git clone [repository-url]`
+   `git clone https://github.com/IsaacScheff/NES_boilerplate.git`
 
 2. Install dependencies:
    `npm install`
