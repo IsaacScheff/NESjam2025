@@ -17,6 +17,7 @@ export default class FightScene extends Phaser.Scene {
         // Game state
         this.isPlayerInvulnerable = false;
         this.isEnemyInvulnerable = false;
+        this.enemyCanMove = true;
         this.isJumping = false;
         this.isJumpHeld = false;
         this.jumpHoldTime = 0;
@@ -114,13 +115,29 @@ export default class FightScene extends Phaser.Scene {
     }
 
     handleEnemyMovement(delta) {
+        if (!this.enemyCanMove) {
+            if (!this.enemy.onGround) {
+                this.enemy.velocity.y += this.gravity * (delta / 1000);
+            }
+            
+            this.enemy.y += this.enemy.velocity.y * (delta / 1000);
+            
+            if (this.enemy.y >= this.groundY) {
+                this.enemy.y = this.groundY;
+                this.enemy.velocity.y = 0;
+                this.enemy.onGround = true;
+            } else {
+                this.enemy.onGround = false;
+            }
+            return;
+        }
+
         this.enemy.x += this.enemy.velocity.x * (delta / 1000);
         
         if (this.enemy.x < 16 || this.enemy.x > 240) {
             this.enemy.velocity.x *= -1;
         }
         
-        // Apply gravity
         if (!this.enemy.onGround) {
             this.enemy.velocity.y += this.gravity * (delta / 1000);
         }
@@ -283,6 +300,10 @@ export default class FightScene extends Phaser.Scene {
     }
 
     enemyShoot() {
+        this.enemyCanMove = false;
+        const previousVelocityX = this.enemy.velocity.x;
+        this.enemy.velocity.x = 0;
+
         const directions = [
             { x: 100, y: 0 },
             { x: -100, y: 0 },
@@ -298,6 +319,11 @@ export default class FightScene extends Phaser.Scene {
             const proj = this.add.sprite(this.enemy.x, this.enemy.y - 10, 'fireball');
             proj.velocity = { x: dir.x, y: dir.y };
             this.enemyProjectiles.add(proj);
+        });
+
+        this.time.delayedCall(1000, () => {
+            this.enemyCanMove = true;
+            this.enemy.velocity.x = previousVelocityX;
         });
     }
 
