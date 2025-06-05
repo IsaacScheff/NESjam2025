@@ -5,17 +5,22 @@ export default class FightScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FightScene' });
         
-        this.isJumpHeld = false;
-        this.jumpForce = -160;
-        this.jumpHoldTime = 0;
-        this.maxJumpDuration = 150;
+        // Physics parameters
+        this.jumpForce = -400;
+        this.maxJumpDuration = 300;
+        this.gravity = 800;
+        this.groundY = 240 - 24; // Adjusted for eventual tile placement
+        this.playerSpeed = 120;
+        this.fireballSpeed = 180;
+        this.fireballCooldown = 500;
+        
+        // Game state
         this.isPlayerInvulnerable = false;
-
-        this.lastFireballTime = 0;
-        this.fireballCooldown = 500; //milliseconds
-        this.fireballSpd = 1.5; //multiplier applied to player speed
-
         this.isEnemyInvulnerable = false;
+        this.isJumping = false;
+        this.isJumpHeld = false;
+        this.jumpHoldTime = 0;
+        this.lastFireballTime = 0;
     }
 
     preload() {
@@ -26,7 +31,7 @@ export default class FightScene extends Phaser.Scene {
         
         this.load.spritesheet('enemy', 'assets/sprites/ItsaMario.png', {
             frameWidth: 16,
-            frameHeight: 32
+            frameHeight: 27
         });
 
         this.load.image('fireball', 'assets/sprites/fireball.png');
@@ -35,72 +40,141 @@ export default class FightScene extends Phaser.Scene {
     create() {
         this.inputHandler = new InputHandler(this);
         
-        this.physics.world.setBounds(0, 0, 256, 240);
-        this.physics.world.checkCollision.down = false;
-        
-        this.player = this.physics.add.sprite(128, 120, 'player');
-        this.player.setCollideWorldBounds(true, true, true, false);
-        this.player.setBounce(0.1);
+        this.player = this.add.sprite(128, 120, 'player');
+        this.player.velocity = { x: 0, y: 0 };
+        this.player.onGround = false;
         this.player.setDepth(1);
+        this.player.setOrigin(0.5, 1); // Anchor to bottom center
 
-        this.enemy = this.physics.add.sprite(50, 200, 'enemy');
-        this.enemy.setCollideWorldBounds(true);
-        this.enemy.setBounce(1); // Bounce off walls
-        this.enemy.setVelocityX(50); // Initial movement speed
-        
-        this.isJumping = false;
-        this.playerSpeed = 120;
-        
-        // Create ground (invisible)
-        this.ground = this.add.rectangle(0, 240, 256, 10, 0x000000, 0).setOrigin(0, 0);
-        this.physics.add.existing(this.ground, true);
-        
-        this.physics.add.collider(this.player, this.ground, () => {
-            this.isJumping = false;
-            this.isJumpHeld = false;
-            this.jumpHoldTime = 0;
-        });
-        
-        this.physics.add.collider(this.enemy, this.ground);
-        this.physics.add.overlap(this.enemy, this.player, this.hitPlayer, null, this);
+        this.enemy = this.add.sprite(50, 200, 'enemy');
+        this.enemy.velocity = { x: 50, y: 0 };
+        this.enemy.onGround = true;
+        this.enemy.setOrigin(0.5, 1); // Anchor to bottom center
 
-        this.fireballs = this.physics.add.group();
-        this.physics.add.collider(this.fireballs, this.ground, fireball => fireball.destroy());
-        this.physics.add.overlap(this.fireballs, this.enemy, this.hitEnemy, null, this);
+        this.fireballs = this.add.group();
+        this.enemyProjectiles = this.add.group();
 
-        this.physics.world.on('worldbounds', (body) => {
-            if (body.gameObject?.texture?.key === 'fireball') {
-                body.gameObject.destroy();
-            }
+        this.time.addEvent({
+            delay: Phaser.Math.Between(2000, 3000),
+            loop: true,
+            callback: this.enemyAIBehavior,
+            callbackScope: this
         });
     }
 
-    update() {
+    update(time, delta) {
         this.inputHandler.update();
-        
-        this.player.setVelocityX(0);
-        
+        this.handlePlayerMovement(delta);
+        this.handleEnemyMovement(delta);
+        this.updateProjectiles(delta);
+        this.checkCollisions();
+    }
+
+    handlePlayerMovement(delta) {
+        this.player.velocity.x = 0;
+
         if (this.inputHandler.isDown('left')) {
             this.moveLeft();
         } else if (this.inputHandler.isDown('right')) {
             this.moveRight();
         }
         
-        if (this.inputHandler.justDown('A') && !this.isJumping) {
+        if (this.inputHandler.justDown('A') && this.player.onGround) {
             this.startJump();
         }
         
         if (this.isJumping && this.isJumpHeld) {
-            this.handleJump();
+            this.handleJump(delta);
         }
         
         if (this.inputHandler.justUp('A') && this.isJumping) {
             this.cancelJump();
         }
-
+        
+        if (!this.player.onGround) {
+            this.player.velocity.y += this.gravity * (delta / 1000);
+        }
+        
+        this.player.x += this.player.velocity.x * (delta / 1000);
+        this.player.y += this.player.velocity.y * (delta / 1000);
+        
+        // Ground collision
+        if (this.player.y >= this.groundY) {
+            this.player.y = this.groundY;
+            this.player.velocity.y = 0;
+            this.player.onGround = true;
+            this.isJumping = false;
+        } else {
+            this.player.onGround = false;
+        }
+        
         if (this.inputHandler.justDown('B')) {
             this.shootFireball();
         }
+    }
+
+    handleEnemyMovement(delta) {
+        this.enemy.x += this.enemy.velocity.x * (delta / 1000);
+        
+        if (this.enemy.x < 16 || this.enemy.x > 240) {
+            this.enemy.velocity.x *= -1;
+        }
+        
+        // Apply gravity
+        if (!this.enemy.onGround) {
+            this.enemy.velocity.y += this.gravity * (delta / 1000);
+        }
+        
+        this.enemy.y += this.enemy.velocity.y * (delta / 1000);
+        
+        if (this.enemy.y >= this.groundY) {
+            this.enemy.y = this.groundY;
+            this.enemy.velocity.y = 0;
+            this.enemy.onGround = true;
+        } else {
+            this.enemy.onGround = false;
+        }
+    }
+
+    updateProjectiles(delta) {
+        this.fireballs.getChildren().forEach(fireball => {
+            fireball.x += fireball.velocity.x * (delta / 1000);
+            if (fireball.x < -16 || fireball.x > 272) {
+                fireball.destroy();
+            }
+        });
+        
+        this.enemyProjectiles.getChildren().forEach(proj => {
+            proj.x += proj.velocity.x * (delta / 1000);
+            proj.y += proj.velocity.y * (delta / 1000);
+            if (proj.x < -16 || proj.x > 272 || proj.y < -16 || proj.y > 256) {
+                proj.destroy();
+            }
+        });
+    }
+
+    checkCollisions() {
+        if (this.checkSpriteCollision(this.player, this.enemy)) {
+            this.hitPlayer();
+        }
+        
+        this.fireballs.getChildren().forEach(fireball => {
+            if (this.checkSpriteCollision(fireball, this.enemy)) {
+                this.hitEnemy(this.enemy, fireball);
+            }
+        });
+        
+        this.enemyProjectiles.getChildren().forEach(proj => {
+            if (this.checkSpriteCollision(proj, this.player)) {
+                this.hitPlayerWithProjectile(this.player, proj);
+            }
+        });
+    }
+
+    checkSpriteCollision(sprite1, sprite2) {
+        const bounds1 = sprite1.getBounds();
+        const bounds2 = sprite2.getBounds();
+        return Phaser.Geom.Intersects.RectangleToRectangle(bounds1, bounds2);
     }
 
     hitPlayer() {
@@ -108,7 +182,7 @@ export default class FightScene extends Phaser.Scene {
         
         this.isPlayerInvulnerable = true;
         
-        const flickerTween = this.tweens.add({
+        this.tweens.add({
             targets: this.player,
             alpha: 0,
             ease: 'Linear',
@@ -122,48 +196,47 @@ export default class FightScene extends Phaser.Scene {
         });
         
         const knockbackDirection = this.player.x < this.enemy.x ? -1 : 1;
-        this.player.setVelocityX(200 * knockbackDirection);
-        this.player.setVelocityY(-100);
+        this.player.velocity.x = 200 * knockbackDirection;
+        this.player.velocity.y = -100;
+        this.player.onGround = false;
     }
 
     startJump() {
-        if (this.player.body.touching.down) {
-            this.isJumping = true;
-            this.isJumpHeld = true;
-            this.jumpHoldTime = 0;
-            this.player.setVelocityY(this.jumpForce);
-        }
+        this.isJumping = true;
+        this.isJumpHeld = true;
+        this.jumpHoldTime = 0;
+        this.player.velocity.y = this.jumpForce;
+        this.player.onGround = false;
     }
 
-    handleJump() {
+    handleJump(delta) {
         if (this.jumpHoldTime >= this.maxJumpDuration) {
             this.isJumpHeld = false;
             return;
         }
         
         if (this.inputHandler.isDown('A')) {
-            this.jumpHoldTime += this.game.loop.delta;
-            
-            if (this.player.body.velocity.y < 0) {
-                this.player.setVelocityY(this.jumpForce);
+            this.jumpHoldTime += delta;
+            if (this.player.velocity.y < 0) {
+                this.player.velocity.y = this.jumpForce * (1 - (this.jumpHoldTime / this.maxJumpDuration));
             }
         }
     }
 
     cancelJump() {
         this.isJumpHeld = false;
-        if (this.player.body.velocity.y < 0) {
-            this.player.setVelocityY(this.player.body.velocity.y * 0.6);
+        if (this.player.velocity.y < 0) {
+            this.player.velocity.y *= 0.6;
         }
     }
 
     moveLeft() {
-        this.player.setVelocityX(-this.playerSpeed);
+        this.player.velocity.x = -this.playerSpeed;
         this.player.setFlipX(false);
     }
 
     moveRight() {
-        this.player.setVelocityX(this.playerSpeed);
+        this.player.velocity.x = this.playerSpeed;
         this.player.setFlipX(true);
     }
 
@@ -173,15 +246,15 @@ export default class FightScene extends Phaser.Scene {
 
         this.lastFireballTime = currentTime;
 
-        const fireball = this.fireballs.create(this.player.x, this.player.y, 'fireball');
-        fireball.setVelocityX(this.player.flipX ? this.playerSpeed * this.fireballSpd : -this.playerSpeed * this.fireballSpd);
-        fireball.setCollideWorldBounds(true);
-        fireball.body.allowGravity = false;
-        fireball.body.onWorldBounds = true;
+        const fireball = this.add.sprite(this.player.x, this.player.y - 10, 'fireball');
+        fireball.velocity = {
+            x: this.player.flipX ? this.fireballSpeed : -this.fireballSpeed,
+            y: 0
+        };
+        this.fireballs.add(fireball);
     }
 
-
-   hitEnemy(enemy, fireball) {
+    hitEnemy(enemy, fireball) {
         if (this.isEnemyInvulnerable) return;
 
         fireball.destroy();
@@ -201,4 +274,35 @@ export default class FightScene extends Phaser.Scene {
         });
     }
 
+    enemyAIBehavior() {
+        if (this.enemy.onGround) {
+            this.enemy.velocity.y = -180;
+            this.enemy.onGround = false;
+            this.time.delayedCall(300, this.enemyShoot, [], this);
+        }
+    }
+
+    enemyShoot() {
+        const directions = [
+            { x: 100, y: 0 },
+            { x: -100, y: 0 },
+            { x: 0, y: 100 },
+            { x: 0, y: -100 },
+            { x: 50, y: -50 },
+            { x: -50, y: 50 },
+            { x: 50, y: 50 },
+            { x: -50, y: -50 },
+        ];
+
+        directions.forEach(dir => {
+            const proj = this.add.sprite(this.enemy.x, this.enemy.y - 10, 'fireball');
+            proj.velocity = { x: dir.x, y: dir.y };
+            this.enemyProjectiles.add(proj);
+        });
+    }
+
+    hitPlayerWithProjectile(player, projectile) {
+        projectile.destroy();
+        this.hitPlayer();
+    }
 }

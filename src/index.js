@@ -10,14 +10,6 @@ const config = {
   scene: [FightScene, TitleScene, InputTestScene],
   zoom: 3,
   pixelArt: true,
-  physics: {
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 300 },
-            debug: false 
-            //debug: true
-        }
-  },
   input: {
         gamepad: true
   },
