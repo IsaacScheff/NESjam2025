@@ -22,6 +22,8 @@ export default class FightScene extends Phaser.Scene {
             frameWidth: 16,
             frameHeight: 32
         });
+
+        this.load.image('fireball', 'assets/sprites/fireball.png');
     }
 
     create() {
@@ -33,6 +35,7 @@ export default class FightScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(128, 120, 'player');
         this.player.setCollideWorldBounds(true, true, true, false);
         this.player.setBounce(0.1);
+        this.player.setDepth(1);
 
         this.enemy = this.physics.add.sprite(50, 200, 'enemy');
         this.enemy.setCollideWorldBounds(true);
@@ -55,7 +58,15 @@ export default class FightScene extends Phaser.Scene {
         this.physics.add.collider(this.enemy, this.ground);
         this.physics.add.overlap(this.enemy, this.player, this.hitPlayer, null, this);
 
-        this.player.setDepth(1);
+        this.fireballs = this.physics.add.group();
+        this.physics.add.collider(this.fireballs, this.ground, fireball => fireball.destroy());
+        this.physics.add.overlap(this.fireballs, this.enemy, this.hitEnemy, null, this);
+
+        this.physics.world.on('worldbounds', (body) => {
+            if (body.gameObject?.texture?.key === 'fireball') {
+                body.gameObject.destroy();
+            }
+        });
     }
 
     update() {
@@ -79,6 +90,10 @@ export default class FightScene extends Phaser.Scene {
         
         if (this.inputHandler.justUp('A') && this.isJumping) {
             this.cancelJump();
+        }
+
+        if (this.inputHandler.justDown('B')) {
+            this.shootFireball();
         }
     }
 
@@ -145,4 +160,31 @@ export default class FightScene extends Phaser.Scene {
         this.player.setVelocityX(this.playerSpeed);
         this.player.setFlipX(true);
     }
+
+    shootFireball() {
+        const fireball = this.fireballs.create(this.player.x, this.player.y, 'fireball');
+        fireball.setVelocityX(this.player.flipX ? this.playerSpeed : -this.playerSpeed);
+        fireball.setCollideWorldBounds(true);
+        fireball.body.allowGravity = false;
+
+        fireball.body.onWorldBounds = true;
+
+    }
+
+   hitEnemy(enemy, fireball) {
+        fireball.destroy();
+
+        this.tweens.add({
+            targets: enemy,
+            alpha: { from: 1, to: 0 },
+            ease: 'Linear',
+            duration: 100,
+            repeat: 2,
+            yoyo: true,
+            onComplete: () => {
+                enemy.setAlpha(1);
+            }
+        });
+    }
+
 }
