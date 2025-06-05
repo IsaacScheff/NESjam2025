@@ -10,6 +10,12 @@ export default class FightScene extends Phaser.Scene {
         this.jumpHoldTime = 0;
         this.maxJumpDuration = 150;
         this.isPlayerInvulnerable = false;
+
+        this.lastFireballTime = 0;
+        this.fireballCooldown = 500; //milliseconds
+        this.fireballSpd = 1.5; //multiplier applied to player speed
+
+        this.isEnemyInvulnerable = false;
     }
 
     preload() {
@@ -162,27 +168,35 @@ export default class FightScene extends Phaser.Scene {
     }
 
     shootFireball() {
+        const currentTime = this.time.now;
+        if (currentTime - this.lastFireballTime < this.fireballCooldown) return;
+
+        this.lastFireballTime = currentTime;
+
         const fireball = this.fireballs.create(this.player.x, this.player.y, 'fireball');
-        fireball.setVelocityX(this.player.flipX ? this.playerSpeed : -this.playerSpeed);
+        fireball.setVelocityX(this.player.flipX ? this.playerSpeed * this.fireballSpd : -this.playerSpeed * this.fireballSpd);
         fireball.setCollideWorldBounds(true);
         fireball.body.allowGravity = false;
-
         fireball.body.onWorldBounds = true;
-
     }
 
+
    hitEnemy(enemy, fireball) {
+        if (this.isEnemyInvulnerable) return;
+
         fireball.destroy();
+        this.isEnemyInvulnerable = true;
 
         this.tweens.add({
             targets: enemy,
             alpha: { from: 1, to: 0 },
             ease: 'Linear',
             duration: 100,
-            repeat: 2,
+            repeat: 3,
             yoyo: true,
             onComplete: () => {
                 enemy.setAlpha(1);
+                this.isEnemyInvulnerable = false;
             }
         });
     }
