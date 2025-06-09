@@ -1,9 +1,6 @@
 import Phaser from 'phaser';
 import InputHandler from '../InputHandler.js';
-
-//when fire flower knigth has taken some damage he starts jumping around higher 
-// (so his bottom fireballs actually matter)
-//of course abstract enemies into their own class next
+import Enemy from '../Enemy.js';
 
 export default class FightScene extends Phaser.Scene {
     constructor() {
@@ -13,15 +10,13 @@ export default class FightScene extends Phaser.Scene {
         this.jumpForce = -400;
         this.maxJumpDuration = 300;
         this.gravity = 800;
-        this.groundY = 240 - 24; // Adjusted for eventual tile placement
+        this.groundY = 240 - 24;
         this.playerSpeed = 120;
         this.fireballSpeed = 180;
         this.fireballCooldown = 500;
         
-        // Game state
+        // Player state
         this.isPlayerInvulnerable = false;
-        this.isEnemyInvulnerable = false;
-        this.enemyCanMove = true;
         this.isJumping = false;
         this.isJumpHeld = false;
         this.jumpHoldTime = 0;
@@ -44,33 +39,23 @@ export default class FightScene extends Phaser.Scene {
 
     create() {
         this.inputHandler = new InputHandler(this);
-        
+
         this.player = this.add.sprite(128, 120, 'player');
         this.player.velocity = { x: 0, y: 0 };
         this.player.onGround = false;
         this.player.setDepth(1);
-        this.player.setOrigin(0.5, 1); // Anchor to bottom center
-
-        this.enemy = this.add.sprite(50, 200, 'enemy');
-        this.enemy.velocity = { x: 50, y: 0 };
-        this.enemy.onGround = true;
-        this.enemy.setOrigin(0.5, 1); // Anchor to bottom center
-
+        this.player.setOrigin(0.5, 1);
+        
+        this.enemy = new Enemy(this, 50, 200, 'enemy');
+        
         this.fireballs = this.add.group();
         this.enemyProjectiles = this.add.group();
-
-        this.time.addEvent({
-            delay: Phaser.Math.Between(2000, 3000),
-            loop: true,
-            callback: this.enemyAIBehavior,
-            callbackScope: this
-        });
     }
 
     update(time, delta) {
         this.inputHandler.update();
         this.handlePlayerMovement(delta);
-        this.handleEnemyMovement(delta);
+        this.enemy.update(delta); // Let the enemy update itself
         this.updateProjectiles(delta);
         this.checkCollisions();
     }
@@ -118,45 +103,6 @@ export default class FightScene extends Phaser.Scene {
         }
     }
 
-    handleEnemyMovement(delta) {
-        if (!this.enemyCanMove) {
-            if (!this.enemy.onGround) {
-                this.enemy.velocity.y += this.gravity * (delta / 1000);
-            }
-            
-            this.enemy.y += this.enemy.velocity.y * (delta / 1000);
-            
-            if (this.enemy.y >= this.groundY) {
-                this.enemy.y = this.groundY;
-                this.enemy.velocity.y = 0;
-                this.enemy.onGround = true;
-            } else {
-                this.enemy.onGround = false;
-            }
-            return;
-        }
-
-        this.enemy.x += this.enemy.velocity.x * (delta / 1000);
-        
-        if (this.enemy.x < 16 || this.enemy.x > 240) {
-            this.enemy.velocity.x *= -1;
-        }
-        
-        if (!this.enemy.onGround) {
-            this.enemy.velocity.y += this.gravity * (delta / 1000);
-        }
-        
-        this.enemy.y += this.enemy.velocity.y * (delta / 1000);
-        
-        if (this.enemy.y >= this.groundY) {
-            this.enemy.y = this.groundY;
-            this.enemy.velocity.y = 0;
-            this.enemy.onGround = true;
-        } else {
-            this.enemy.onGround = false;
-        }
-    }
-
     updateProjectiles(delta) {
         this.fireballs.getChildren().forEach(fireball => {
             fireball.x += fireball.velocity.x * (delta / 1000);
@@ -181,7 +127,7 @@ export default class FightScene extends Phaser.Scene {
         
         this.fireballs.getChildren().forEach(fireball => {
             if (this.checkSpriteCollision(fireball, this.enemy)) {
-                this.hitEnemy(this.enemy, fireball);
+                this.enemy.takeHit(fireball);
             }
         });
         
@@ -273,62 +219,6 @@ export default class FightScene extends Phaser.Scene {
             y: 0
         };
         this.fireballs.add(fireball);
-    }
-
-    hitEnemy(enemy, fireball) {
-        if (this.isEnemyInvulnerable) return;
-
-        fireball.destroy();
-        this.isEnemyInvulnerable = true;
-
-        this.tweens.add({
-            targets: enemy,
-            alpha: { from: 1, to: 0 },
-            ease: 'Linear',
-            duration: 100,
-            repeat: 3,
-            yoyo: true,
-            onComplete: () => {
-                enemy.setAlpha(1);
-                this.isEnemyInvulnerable = false;
-            }
-        });
-    }
-
-    enemyAIBehavior() {
-        if (this.enemy.onGround) {
-            this.enemy.velocity.y = -180;
-            this.enemy.onGround = false;
-            this.time.delayedCall(300, this.enemyShoot, [], this);
-        }
-    }
-
-    enemyShoot() {
-        this.enemyCanMove = false;
-        const previousVelocityX = this.enemy.velocity.x;
-        this.enemy.velocity.x = 0;
-
-        const directions = [
-            { x: 100, y: 0 },
-            { x: -100, y: 0 },
-            { x: 0, y: 100 },
-            { x: 0, y: -100 },
-            { x: 50, y: -50 },
-            { x: -50, y: 50 },
-            { x: 50, y: 50 },
-            { x: -50, y: -50 },
-        ];
-
-        directions.forEach(dir => {
-            const proj = this.add.sprite(this.enemy.x, this.enemy.y - 10, 'fireball');
-            proj.velocity = { x: dir.x, y: dir.y };
-            this.enemyProjectiles.add(proj);
-        });
-
-        this.time.delayedCall(1000, () => {
-            this.enemyCanMove = true;
-            this.enemy.velocity.x = previousVelocityX;
-        });
     }
 
     hitPlayerWithProjectile(player, projectile) {
