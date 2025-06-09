@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import InputHandler from '../InputHandler.js';
 
+//when fire flower knigth has taken some damage he starts jumping around higher 
+// (so his bottom fireballs actually matter)
+//of course abstract enemies into their own class next
+
 export default class FightScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FightScene' });
