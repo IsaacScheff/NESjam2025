@@ -1,8 +1,7 @@
-// Enemy.js
 import Phaser from 'phaser';
 
 export default class Enemy extends Phaser.GameObjects.Sprite {
-    constructor(scene, x, y, texture) {
+    constructor(scene, x, y, texture, maxHealth = 3) {
         super(scene, x, y, texture);
         
         scene.add.existing(this);
@@ -12,6 +11,9 @@ export default class Enemy extends Phaser.GameObjects.Sprite {
         this.setOrigin(0.5, 1); // Anchor to bottom center
         this.canMove = true;
         this.isInvulnerable = false;
+
+        this.maxHealth = maxHealth;
+        this.health = maxHealth;
         
         this.sceneRef = scene;
         
@@ -105,9 +107,17 @@ export default class Enemy extends Phaser.GameObjects.Sprite {
     }
 
     takeHit(source) {
-        if (this.isInvulnerable) return;
+        if (this.isInvulnerable || this.health <= 0) return;
+
+        this.health--;
 
         source.destroy();
+
+        if (this.health <= 0) {
+            this.destroyEnemy();
+            return;
+        }
+
         this.isInvulnerable = true;
 
         this.sceneRef.tweens.add({
@@ -122,5 +132,11 @@ export default class Enemy extends Phaser.GameObjects.Sprite {
                 this.isInvulnerable = false;
             }
         });
+    }
+
+     destroyEnemy() {
+        this.aiTimer.destroy();
+        this.destroy();
+        //TODO: trigger fight won scenario
     }
 }
