@@ -6,7 +6,6 @@ export default class FightScene extends Phaser.Scene {
     constructor() {
         super({ key: 'FightScene' });
         
-        // Physics parameters
         this.jumpForce = -400;
         this.maxJumpDuration = 300;
         this.gravity = 800;
@@ -15,7 +14,7 @@ export default class FightScene extends Phaser.Scene {
         this.fireballSpeed = 180;
         this.fireballCooldown = 500;
         
-        // Player state
+        this.playerLives = 3;
         this.isPlayerInvulnerable = false;
         this.isJumping = false;
         this.isJumpHeld = false;
@@ -35,6 +34,7 @@ export default class FightScene extends Phaser.Scene {
         });
 
         this.load.image('fireball', 'assets/sprites/fireball.png');
+        this.load.image('heart', 'assets/sprites/heart.png');
     }
 
     create() {
@@ -50,12 +50,44 @@ export default class FightScene extends Phaser.Scene {
         
         this.fireballs = this.add.group();
         this.enemyProjectiles = this.add.group();
+
+        this.createLivesDisplay();
+    }
+
+    createLivesDisplay() {
+        this.livesGroup = this.add.group();
+        const heartSize = 16;
+        const padding = 4;
+        
+        for (let i = 0; i < this.playerLives; i++) {
+            const heart = this.add.image(
+                10 + (i * (heartSize + padding)),
+                10,
+                'heart'
+            ).setOrigin(0, 0).setScrollFactor(0);
+            this.livesGroup.add(heart);
+        }
+    }
+
+    updateLivesDisplay() {
+        this.livesGroup.clear(true, true);
+        const heartSize = 16;
+        const padding = 4;
+        
+        for (let i = 0; i < this.playerLives; i++) {
+            const heart = this.add.image(
+                10 + (i * (heartSize + padding)),
+                10,
+                'heart'
+            ).setOrigin(0, 0).setScrollFactor(0);
+            this.livesGroup.add(heart);
+        }
     }
 
     update(time, delta) {
         this.inputHandler.update();
         this.handlePlayerMovement(delta);
-        this.enemy.update(delta); // Let the enemy update itself
+        this.enemy.update(delta);
         this.updateProjectiles(delta);
         this.checkCollisions();
     }
@@ -88,7 +120,6 @@ export default class FightScene extends Phaser.Scene {
         this.player.x += this.player.velocity.x * (delta / 1000);
         this.player.y += this.player.velocity.y * (delta / 1000);
         
-        // Ground collision
         if (this.player.y >= this.groundY) {
             this.player.y = this.groundY;
             this.player.velocity.y = 0;
@@ -145,7 +176,15 @@ export default class FightScene extends Phaser.Scene {
     }
 
     hitPlayer() {
-        if (this.isPlayerInvulnerable) return;
+        if (this.isPlayerInvulnerable || this.playerLives <= 0) return;
+        
+        this.playerLives--;
+        this.updateLivesDisplay();
+        
+        if (this.playerLives <= 0) {
+            this.gameOver();
+            return;
+        }
         
         this.isPlayerInvulnerable = true;
         
@@ -166,6 +205,10 @@ export default class FightScene extends Phaser.Scene {
         this.player.velocity.x = 200 * knockbackDirection;
         this.player.velocity.y = -100;
         this.player.onGround = false;
+    }
+
+    gameOver() {
+        console.log('Game Over');
     }
 
     startJump() {
